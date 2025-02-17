@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="C:/Users/DELL/Desktop/gemini/static/image/car.jpg" type="image/jpg">
+    <title>BHANU AI</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            background-color: #f4f4f4;
+            flex-direction: column;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #333;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            padding: 20px;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            white-space: pre-wrap;
+            max-height: 70vh; /* Limit chat box height */
+            margin-bottom: 20px;
+        }
+
+        .input-container {
+            display: flex;
+            margin-top: 10px;
+            align-items: center;
+            position: relative;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .input-container input:focus {
+            width: 95%;
+            box-shadow: 0px 0px 8px #007bff;
+        }
+
+        .input-container button {
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 50%;
+            margin-left: 10px;
+            font-size: 18px;
+        }
+
+        .mic-button {
+            background: red;
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        /* Code block styling */
+        .code-message {
+            background: #282c34;
+            color: #f8f8f2;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 5px 0;
+            font-family: monospace;
+            max-width: 75%;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        /* Syntax Highlighting (simple version) */
+        .code-message span.keyword {
+            color: #f92672;
+            font-weight: bold;
+        }
+
+        .code-message span.string {
+            color: #a6e22e;
+        }
+
+        .code-message span.comment {
+            color: #75715e;
+        }
+
+        .code-message span.number {
+            color: #ae81ff;
+        }
+
+        .code-message span.function {
+            color: #66d9ef;
+        }
+
+        /* Styling for chat messages */
+        .bot-message, .user-message {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .bot-message {
+            color: #007bff;
+        }
+
+        .user-message {
+            color: #28a745;
+        }
+
+        .copy-button {
+            background: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Styling for the header */
+        .header {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Chat History</h2>
+            <ul id="history-list"></ul>
+            <button onclick="clearHistory()">Clear History</button>
+        </div>
+        <div class="chat-container">
+            <div class="header">
+                <h2>AI Chatbot</h2>
+            </div>
+            <div class="chat-box" id="chat-box"></div>
+            <div class="input-container">
+                <input type="text" id="user-input" placeholder="Type a message...">
+                <button onclick="sendMessage()">⬆️</button>
+                <button class="mic-button" onclick="startSpeechRecognition()">🎤</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function parseCodeMessage(messageContent) {
+            const keywords = /\b(function|if|else|return|for|while|var|let|const|class|import|export|try|catch)\b/g;
+            const strings = /(['"`])(\\?[\s\S])*?\1/g;
+            const comments = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+            const numbers = /\b\d+\b/g;
+
+            messageContent = messageContent.replace(keywords, `<span class="keyword">$&</span>`);
+            messageContent = messageContent.replace(strings, `<span class="string">$&</span>`);
+            messageContent = messageContent.replace(comments, `<span class="comment">$&</span>`);
+            messageContent = messageContent.replace(numbers, `<span class="number">$&</span>`);
+
+            return messageContent;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById("user-input");
+            const message = input.value.trim();
+            if (message) {
+                const chatBox = document.getElementById("chat-box");
+
+                // Display user message
+                const userMessage = document.createElement("div");
+                userMessage.className = "user-message";
+                userMessage.textContent = message;
+                chatBox.appendChild(userMessage);
+
+                // Clear input field
+                input.value = "";
+
+                // Send message to backend using POST
+                fetch("/get", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message: message })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const botMessage = document.createElement("div");
+                    let messageContent = data.response;
+
+                    // Check if message contains formatted text (e.g., bold, lists, etc.)
+                    messageContent = messageContent.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>"); // Bold text
+                    messageContent = messageContent.replace(/\*(.*?)\*/g, "<i>$1</i>"); // Italic text
+                    messageContent = messageContent.replace(/^\s*\n/g, '<ul><li>$1</li></ul>'); // Handle lists
+                    
+                    // Check for code message block (triple backticks)
+                    if (messageContent.includes("```")) {
+                        botMessage.className = "code-message";
+                        messageContent = messageContent.replace(/```/g, ''); // Remove backticks
+                        messageContent = parseCodeMessage(messageContent);
+                    } else {
+                        botMessage.className = "bot-message";
+                    }
+
+                    botMessage.innerHTML = messageContent;
+
+                    if (botMessage.className === "code-message") {
+                        const copyButton = document.createElement("button");
+                        copyButton.className = "copy-button";
+                        copyButton.textContent = "Copy";
+                        copyButton.onclick = () => copyToClipboard(messageContent);
+                        botMessage.appendChild(copyButton);
+                    }
+
+                    chatBox.appendChild(botMessage);
+                    chatBox.scrollTop = chatBox.scrollHeight; // Scroll to bottom
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+            }
+        }
+
+        function copyToClipboard(messageContent) {
+            const tempInput = document.createElement("input");
+            document.body.appendChild(tempInput);
+            tempInput.value = messageContent;
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+        }
+
+        function startSpeechRecognition() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-US';
+            recognition.start();
+            recognition.onresult = function(event) {
+                document.getElementById("user-input").value = event.results[0][0].transcript;
+            };
+        }
+
+        function clearHistory() {
+            document.getElementById("history-list").innerHTML = "";
+            document.getElementById("chat-box").innerHTML = ""; // Clears chat history
+        }
+    </script>
+</body>
+</html>
